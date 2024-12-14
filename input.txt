@@ -1,0 +1,25 @@
+VAR_GLOBAL {
+  INTEGER B;
+}
+DECLARATION {
+  INTEGER X, i, Y;
+FLOAT C;
+   CONST INTEGER A=1;
+}
+INSTRUCTION {
+  %% Initialisation des variables
+  FOR (i = 0 : 10 : 2) {
+    WRITE(i);
+    WRITE("'wereeeee hereeeeeeeeeeeeeeeeeeeeeeee");
+}
+  Y=5;
+  
+  B = 10;
+  %% Condition qui renvoie "true" (A est plus petit que B)
+  IF (A < B) {
+    WRITE ("A est plus petit que B.");
+  }
+  ELSE {
+    WRITE ("Ce message ne sera pas affiché.");
+  }
+}

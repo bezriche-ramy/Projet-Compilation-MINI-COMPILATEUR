@@ -7,17 +7,16 @@
     #include "pile.h"
     #include "quadruplets.h"
     #include "TS_tabFormat.h"
- 
+
     //extern int qc;
     //extern qdr quad[1000];
 
     extern int yylineno;
 
     char *op1, *op2; // gerer les exp_arthimetique pour maj de idf et test conditions 
-    char tmp[50];//stocke temporairement des résultats d'opérations.  
+    char tmp[50];  
 
-    int quadindex1 ,quadindex2;//manipuler et suivre les quadruplets (représentation intermédiaire).
-
+    int quadindex1 ,quadindex2;
     char  sauvindex[4];
     char quad1[10]; 
     char quad2[10];
@@ -27,12 +26,12 @@
 
 
 
-    void yyerror(const char *s);// La fonction yyerror gère les erreurs syntaxiques.
+    void yyerror(const char *s);
     int yylex();
 
 
     void print_string(const char* str) {
-        // Enlève les guillemets d'une chaîne et l'affiche
+        // Enlève les guillemets et affiche
         char* tmp = strdup(str + 1);  // Skip first quote
         tmp[strlen(tmp)-1] = '\0';    // Remove last quote
         printf("%s\n", tmp);
@@ -40,7 +39,7 @@
     }
 
 %}
-/***********************************************Déclarations des types et tokens**************************************************************************/
+
 %union {
     int integer;
     float floating;
@@ -68,7 +67,7 @@
 %type <string> type
 %type <string> constant_value
 
-/*********************************************************** Define operator precedence **********************************************/
+/* Define operator precedence */
 %left OR
 %left AND
 %left EQUAL NOT_EQUAL LESS_EQUAL GREATER_EQUAL GREATER LESS
@@ -77,7 +76,6 @@
 
 
 %%
-/*************************************************Programme principal**********************************************************************************/
 
 program: { printf("-----------------------Debut du bloc var_global------------------------------------\n");}
     VAR_GLOBAL LBRACE declarations RBRACE declaration_block instruction_block
@@ -97,16 +95,16 @@ declarations:
 declaration: type IDENTIFIER var_list ';'
     {  printf("Debut de var_global\n");
         // Déclaration d'une variable simple sans valeur initiale
-        printf("%s ggggg",$2);
-        printf("%s ooooo",sauvidf);
         insertSymbol($2, sauvidf, 0, 0, 0, ""); 
     }
     | CONST type IDENTIFIER '=' constant_value ';'
     {
         char value[50];
         //sprintf(value, "%s", $5); // Convertir la valeur constante en chaîne
-        
-        insertConstantSymbol($3, sauvidf, $5); // Ajouter la constante avec sa valeur
+        //*****************************************semantic check=double declaration***********************************************************
+        if(!lookupSymbol($3))
+       {     insertConstantSymbol($3,sauvidf,$5) ;               }
+       else { yyerror("Double declared variable");  }
     }
     | type IDENTIFIER '[' INTEGER_CONSTANT ']' ';'
     {
@@ -114,7 +112,9 @@ declaration: type IDENTIFIER var_list ';'
         char sizeS[10];
         strcpy(sizeS,$4); // Sauvegarder la taille sous forme de chaîne
         int size =  atoi(sizeS); // Conversion de la chaîne en entier
-        insertSymbol($2, $1, 1, size, 0, ""); 
+        if(size<=0){ yyerror("Size of the array cannot be negative");}
+        else {
+        insertSymbol($2, $1, 1, size, 0, ""); }
     }
     ;
 
@@ -122,7 +122,10 @@ var_list:
     ',' IDENTIFIER var_list
     {
         // Déclaration de variables supplémentaires sans valeur initiale
-        insertSymbol($2, sauvidf, 0, 0, 0, ""); 
+        if(!lookupSymbol($2))
+       {          insertSymbol($2, sauvidf, 0, 0, 0, "");          }
+       else { yyerror("Double declared variable");  }
+         
     }
     | ',' IDENTIFIER '[' INTEGER_CONSTANT ']' var_list
     {
@@ -130,7 +133,8 @@ var_list:
         char sizeS[10];
         strcpy(sizeS,$4); // Sauvegarder la taille sous forme de chaîne
         int size =  atoi(sizeS); // Conversion de la chaîne en entier
-        insertSymbol($2, $<string>1, 1, size, 0, ""); 
+        if(size<=0){ yyerror("Size of the array cannot be negative");}
+        else {insertSymbol($2, $<string>1, 1, size, 0, ""); }
     }
     | /* empty */
     ;
@@ -166,50 +170,68 @@ instruction: affectation instruction { /* printf("*********AFFECTATION**********
 
 affectation:   IDENTIFIER '=' IDENTIFIER ';'
             {    printf("*********ICI idf = idf **********\n");
-                get_type_of_idf($<string>3,sauvidf);
-                insert_type($<string>1,sauvidf);
-                get_value_of_idf($<string>3,sauvval);
-                set_value_of_idf($<string>1,sauvval);
+                get_type_of_idf($3,sauvidf);
+                Symbol* sym = lookupSymbol($1);
+                if (!sym) { yyerror("Undeclared variable"); } 
+                else { if (sym->isConstant) { yyerror("Cannot modify a constant"); } 
+                     else {if(!isTypeCompatible(sym->type,sauvidf)) { yyerror("Type mismatch in assignment");  }
+                     else{
+                    get_type_of_idf($<string>3,sauvidf);
+                    insert_type($<string>1,sauvidf);
+                    get_value_of_idf($<string>3,sauvval);
+                    set_value_of_idf($<string>1,sauvval); }}}
     
             } 
             | IDENTIFIER '=' INTEGER_CONSTANT ';'
             {       printf("*********ICI idf = integer **********\n");
                     get_type_of_idf($1,sauvidf);
                     printf("ICI LA VAL DE INTEGER_CONSTANT %s\n",$3);
+                 //verifier la compatibilité des types
+                 Symbol* sym = lookupSymbol($1);
+                if (!sym) { yyerror("Undeclared variable"); } 
+                else { if (sym->isConstant) { yyerror("Cannot modify a constant"); } 
+                     else {
+                if (isTypeCompatible("INTEGER",sauvidf)==0) {
+                yyerror("Type mismatch in assignment.");
+                }else{
                     set_value_of_idf($1,$3);
-                    ajout_quad_affect_val($1,$3);
-                  if(is_int_or_float($3)==1)
-                   {
-                        // printf("\n it's an int ");
-                        insert_type($1,"INTEGER");
-                    }else{
-                        // printf("it's a float");
-                        insert_type($1,"FLOAT");
-                    }
+                    ajout_quad_affect_val($1,$3);}}}
+                  
             }
             | IDENTIFIER '=' FLOAT_CONSTANT ';'
             {       printf("*********ICI idf = float **********\n");
                     get_type_of_idf($1,sauvidf);
                     printf("ICI LA VAL DE FLOAT_CONSTANT %s\n",$3);
+                 //verifier la compatibilité des types
+                 Symbol* sym = lookupSymbol($1);
+                if (!sym) { yyerror("Undeclared variable"); } 
+                else { if (sym->isConstant) { yyerror("Cannot modify a constant"); } 
+                     else {
+                        if (isTypeCompatible("FLOAT",sauvidf)==0) {
+                        yyerror("Type mismatch in assignment.");
+                        }else{
                     set_value_of_idf($1,$3);
                     //printf("[[[[[[[[[[[[[[[[[   avant : qc = %d   ]]]]]]]]]]]]]]]]]]\n",qc);
-                    ajout_quad_affect_val($1,$3);
+                    ajout_quad_affect_val($1,$3); }}}
                     //printf("[[[[[[[[[[[[[[[[[   apres : qc = %d   ]]]]]]]]]]]]]]]]]]\n",qc);
-                  if(is_int_or_float($3)==1)
-                   {
-                        // printf("\n it's an int ");
-                        insert_type($1,"INTEGER");
-                    }else{
-                        // printf("it's a float");
-                        insert_type($1,"FLOAT");
-                    }
+                  
             }
             | IDENTIFIER '=' STRING_LITERAL ';'
             {       printf("*********ICI idf = string_literal **********\n");
                     get_type_of_idf($1,sauvidf);
                     printf("ICI LA VAL DE STRING_LITERAL %s\n",$3);
+               
+         //verifier la compatibilité des types
+         Symbol* sym = lookupSymbol($1);
+                if (!sym) { yyerror("Undeclared variable"); } 
+                else { if (sym->isConstant) { yyerror("Cannot modify a constant"); } 
+                     else {
+                    if (isTypeCompatible("CHAR",sauvidf)==0) {
+                    yyerror("Type mismatch in assignment.");
+    
+        } else{
                     set_value_of_idf($1,$3);
-                    ajout_quad_affect_val($1,$3);
+                    ajout_quad_affect_val($1,$3);}}}
                   // VERIFIER SI CHAR ET SI SIZE > AU NOMBRE DE CARACTERES
             }
             | affectation_arithm
@@ -223,20 +245,25 @@ affectation_arithm: IDENTIFIER '=' expression ';'
                   get_type_of_idf($1,sauvidf);
                   printf("ICI LA VAL DE TMP %s\n",tmp);
                   printf("ICI SET DE LA VAL\n");
+        //sauvegarder le type de tmp
+        char* type_tmp;
+        if(is_int_or_float(tmp)){type_tmp ="INTEGER";}
+        else{type_tmp="FLOAT";} 
+        
+        Symbol* sym = lookupSymbol($1);
+                if (!sym) { yyerror("Undeclared variable"); } 
+                else { if (sym->isConstant) { yyerror("Cannot modify a constant"); } 
+                     else {
+                    //verifier la compatibilité des types
+                    if (isTypeCompatible(type_tmp,sauvidf)==0) {
+                    yyerror("Type mismatch in assignment.");
+        
+                    }else{
                   set_value_of_idf($1,tmp);
                   ajout_quad_affect_val($1,tmp);
-                  if(is_int_or_float(tmp)==1)
-                   {
-                       // printf("\n its an int ");
-                        insert_type($1,"INTEGER");
-                    }else{
-                       // printf("its a float");
-                        insert_type($1,"FLOAT");
-                    }
-                    //printf("///////////////QC = %d tmp = %s//////////////////",qc,tmp);
-                    maj_quad(qc-2, 3, tmp);
-            }
-            | IDENTIFIER '=' condition ';'
+                    maj_quad(qc-2, 3, tmp);}}}
+            };
+           /* | IDENTIFIER '=' condition ';'
             {     printf("*********ICI idf = condition  **********\n");
                   // LA PROF DIDN'T ASK FOR THIS BUT I'M JUST CHECKING IF CONDITIONS ARE WORKING CORRECTLY
                   strcpy(tmp, Depiler());
@@ -255,7 +282,7 @@ affectation_arithm: IDENTIFIER '=' expression ';'
                     }
                     maj_quad(qc-2, 3, tmp);
             }
-;
+;*/
 expression:
     expression '+' expression { 
                 printf("*********ICI exp + exp **********\n");
@@ -264,6 +291,20 @@ expression:
                 strcpy(op2, Depiler());  printf("op2 = %s\n",op2); printf("op2 est toujours valide et vaut = %s\n",op2); 
                 strcpy(op1, Depiler());  printf("op1 = %s\n",op1); 
                 //printf("op2 = %s /// op1 =  %s ",op2,op1);
+            //sauvegarder les types 1 et 2
+        char* type1;
+        char* type2;
+        if(is_int_or_float(op1)){type1 ="INTEGER";}
+        else{type1="FLOAT";} //affecter le type de op1 à type1
+        if(is_int_or_float(op2)){type2 ="INTEGER";}
+        else{type2="FLOAT";} //affecter le type de op2 à type2
+        
+         //verifier la compatibilité des types
+        if (isTypeCompatible(type1,type2)==0) {
+        yyerror("Type mismatch in addition.");
+        free(op2); free(op1);
+
+        } else{
                 if(!is_int_or_float(op2)){
                        float ope1 = atof(op1); // Convertir en float
                        float ope2 = atof(op2); 
@@ -280,7 +321,7 @@ expression:
                 
                 Empiler(tmp);
                 ajout_quad_opbinaire('+',op1,op2);
-                free(op2); free(op1);
+                free(op2); free(op1);}
              }
     | expression '-' expression { 
                 printf("*********ICI exp - exp **********\n");
@@ -288,6 +329,20 @@ expression:
                 op1 = malloc(50); 
                 strcpy(op2, Depiler());  printf("op2 = %s\n",op2); printf("op2 est toujours valide et vaut = %s\n",op2); 
                 strcpy(op1, Depiler());  printf("op1 = %s\n",op1); 
+            //sauvegarder les types 1 et 2
+        char* type1;
+        char* type2;
+        if(is_int_or_float(op1)){type1 ="INTEGER";}
+        else{type1="FLOAT";} //affecter le type de op1 à type1
+        if(is_int_or_float(op2)){type2 ="INTEGER";}
+        else{type2="FLOAT";} //affecter le type de op2 à type2
+        
+         //verifier la compatibilité des types
+        if (isTypeCompatible(type1,type2)==0) {
+        yyerror("Type mismatch in substraction.");
+        free(op2); free(op1);
+        
+        } else{
                 if(!is_int_or_float(op2)){
                        float ope1 = atof(op1); // Convertir en float
                        float ope2 = atof(op2); 
@@ -302,7 +357,7 @@ expression:
                     }
                 Empiler(tmp);
                 ajout_quad_opbinaire('-',op1,op2);
-                free(op2); free(op1);
+                free(op2); free(op1);}
              }
     | expression '*' expression { 
                 printf("*********ICI exp * exp **********\n");
@@ -310,6 +365,19 @@ expression:
                 op1 = malloc(50); 
                 strcpy(op2, Depiler());  printf("op2 = %s\n",op2); printf("op2 est toujours valide et vaut = %s\n",op2); 
                 strcpy(op1, Depiler());  printf("op1 = %s\n",op1); 
+            //sauvegarder les types 1 et 2
+        char* type1;
+        char* type2;
+        if(is_int_or_float(op1)){type1 ="INTEGER";}
+        else{type1="FLOAT";} //affecter le type de op1 à type1
+        if(is_int_or_float(op2)){type2 ="INTEGER";}
+        else{type2="FLOAT";} //affecter le type de op2 à type2
+        
+         //verifier la compatibilité des types
+        if (isTypeCompatible(type1,type2)==0) {
+        yyerror("Type mismatch in muliplication.");
+        free(op2); free(op1);
+        } else{
                 if(!is_int_or_float(op2)){
                        float ope1 = atof(op1); // Convertir en float
                        float ope2 = atof(op2); 
@@ -325,14 +393,35 @@ expression:
                 Empiler(tmp);
                 //printf("///////////////QC = %d tmp = %s//////////////////",qc,tmp);
                 ajout_quad_opbinaire('*',op1,op2);printf("///////////////QC = %d tmp = %s//////////////////",qc,tmp);
-                free(op2); free(op1);
+                free(op2); free(op1);}
              }
-    | expression '/' expression { 
+    | expression '/' expression {
+        
                 printf("*********ICI exp / exp **********\n");
                 op2 = malloc(50); 
                 op1 = malloc(50); 
-                strcpy(op2, Depiler());  printf("op2 = %s\n",op2); printf("op2 est toujours valide et vaut = %s\n",op2); 
-                strcpy(op1, Depiler());  printf("op1 = %s\n",op1); 
+                strcpy(op2, Depiler());  printf("op2 = %s\n",op2); 
+                strcpy(op1, Depiler());  printf("op1 = %s\n",op1);
+        //verifier la division par zero       
+        if (atof(op2) == 0) {
+        yyerror("Division by zero");
+        //free(op2); free(op1);
+        //YYABORT; // arreter ici 
+                    } else{
+        //sauvegarder les types 1 et 2
+        char* type1;
+        char* type2;
+        if(is_int_or_float(op1)){type1 ="INTEGER";}
+        else{type1="FLOAT";} //affecter le type de op1 à type1
+        if(is_int_or_float(op2)){type2 ="INTEGER";}
+        else{type2="FLOAT";} //affecter le type de op2 à type2
+        
+         //verifier la compatibilité des types
+        if (isTypeCompatible(type1,type2)==0) {
+        yyerror("Type mismatch in division.");
+        free(op2); free(op1);
+        YYABORT;
+        }
                 if(!is_int_or_float(op2)){
                        float ope1 = atof(op1); // Convertir en float
                        float ope2 = atof(op2); 
@@ -347,7 +436,7 @@ expression:
                     }
                 Empiler(tmp);
                 ajout_quad_opbinaire('/',op1,op2);
-                free(op2); free(op1);
+                free(op2); free(op1);}
              }                
     |'-' expression{
                      op1 = malloc(50); 
@@ -367,11 +456,14 @@ expression:
                     free(op1);
                   }
     |IDENTIFIER
-       {
+       { Symbol* sym = lookupSymbol($1);
+           if (!sym) {
+               yyerror("Undeclared variable");
+           } else {
          get_value_of_idf($1,tmp);
          printf("tmp de %s = %s\n",$1,tmp);
          Empiler(tmp);
-         Afficher_pile();
+         Afficher_pile();}
        }
     |INTEGER_CONSTANT { Empiler($1); Afficher_pile(); }
     |FLOAT_CONSTANT { Empiler($1);}
@@ -401,49 +493,6 @@ A: IF '(' condition ')' LBRACE {
 	quadindex1=qc;
 	quadruplet(quad1 ,"","","tmp_cond");
 }
-/*******************************************************************FOR LOOP*****************************************************************************/
-for_loop:
-    FOR '(' IDENTIFIER '=' expression ':' expression ':' expression ')' LBRACE instruction RBRACE
-{
-    // Initialisation de l'indice de la boucle
-    Symbol *sym = lookupSymbol($3);
-    if (sym == NULL) {
-        fprintf(stderr, "Erreur: La variable '%s' n'est pas déclarée.\n", $3);
-        exit(1);  // Sortir en cas d'erreur
-    }
-
-    // Evaluer et initialiser la valeur de la variable de boucle
-    char *val_init = eval_expression($5);
-    set_value_of_idf($3, val_init);
-
-    // Création de labels pour gérer les sauts
-    int start_label = qc;
-    int end_label = qc + 1;
-
-    // Insérer un quadruplet pour le saut conditionnel de la boucle
-    quadindex2 = qc;
-    quadruplet("BR", "", "", "");
-
-    // Insérer la condition de la boucle
-    char *cond_result = eval_expression($7);
-    if (atoi(cond_result) == 0) {
-        // Si la condition est fausse, on saute à la fin de la boucle
-        maj_quad(quadindex2, 1, cond_result);
-        quadruplet("BR", "", "", "");
-    }
-
-    // Exécuter le corps de la boucle
-    eval_instructions($10);
-
-    // Incrémentation de la variable d'itération
-    eval_expression($9);  // Incrément de la boucle
-
-    // Mettre à jour les labels pour sauter à la fin de la boucle ou à la condition
-    maj_quad(start_label, 1, cond_result);
-    maj_quad(end_label, 1, cond_result);
-}
-
-
 
 condition: 
     expression EQUAL expression 
@@ -596,7 +645,53 @@ condition:
 
 
 
-for_loop:  FOR '(' IDENTIFIER '=' expression ':' expression ':' expression ')' LBRACE instruction RBRACE ;
+for_loop:
+    FOR '(' IDENTIFIER '=' expression ':' expression ':' expression ')' LBRACE instructions RBRACE
+{
+    /*  exemple:for (i = 0; i <= 10; i++) {
+    printf("%d\n", i);
+}*/
+
+    // Initialisation
+    char *initVar = $3;  // Variable de boucle
+    char *startValue = Depiler(); // Valeur de départ de l'expression 1
+    quadruplet("=", startValue, "-", initVar); // Générer un quadruplet pour l'initialisation      (=, 0, -, i)
+
+
+    // Condition de la boucle
+    int loopStart = qc; // Sauvegarder l'index actuel du quadruplet pour le début de la boucle
+    char *endValue = Depiler(); // récupère la valeur de fin 10 à partir de l'évaluation de l'expression2 (i <= 10).
+    char temp1[10]; // Variable temporaire pour le résultat de la condition
+    sprintf(temp1, "T%d", newTemp());
+    quadruplet("<=", initVar, endValue, temp1); // Comparaison de la condition  (<=, i, 10, T1)  // T1 est une variable temporaire pour stocker le résultat de la comparaison
+
+    int conditionQuad = qc - 1; // Souvenez-vous de ce quadruplet qui vérifie la condition de la boucle. pour la mise à jour du saut conditionnel
+
+
+
+                                       // Saut à la sortie de la boucle si la condition est fausse
+    quadruplet("IF_FALSE", temp1, "-", "_"); // Placeholder pour le saut de sortie de boucle
+    int jumpExit = qc - 1; // Sauvegarder l'emplacement pour le saut de sortie
+
+    // Exécution du corps de la boucle
+    eval_instructions($12); // Exécuter les instructions à l'intérieur de la boucle
+
+    // Incrémentation de la variable de boucle
+    char *stepValue = Depiler(); // Valeur du pas d'incrément de l'expression 3
+    char temp2[10]; // Variable temporaire pour l'incrément
+    sprintf(temp2, "T%d", newTemp());
+    quadruplet("+", initVar, stepValue, temp2); // Incrémentation de la variable de boucle (+, i, 1, T2) ---> T2 est une variable temporaire pour stocker la valeur de l'incrément
+
+    quadruplet("=", temp2, "-", initVar); // Affectation de la nouvelle valeur à la variable de boucle  (=, T2, -, i)
+
+
+    // Retour au début de la boucle
+    quadruplet("GOTO", ToSTR(loopStart), "-", "-");
+
+    // Mise à jour du saut de sortie de la boucle (si la condition était fausse)
+    maj_quad(jumpExit, 3, ToSTR(qc)); // Mise à jour de la sortie pour sauter si la condition est fausse
+}
+
 
 write_inst:
     WRITE '(' write_args ')' ';'
