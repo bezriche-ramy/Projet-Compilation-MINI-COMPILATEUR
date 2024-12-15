@@ -20,10 +20,15 @@
     char  sauvindex[4];
     char quad1[10]; 
     char quad2[10];
+    char* comparison_type;
+
 
     char sauvidf[10];  // save type  ( CHAR FLOAT INTEGER ) , pour màj de type idf 
     char sauvval[10]; // save val  pour maj de valeur idf 
 
+    // Function declarations
+int evaluate_float_condition(float val1, float val2, const char* comparison_type);
+int evaluate_int_condition(int val1, int val2, const char* comparison_type);
 
 
     void yyerror(const char *s);
@@ -475,223 +480,128 @@ expression:
 
 //if_statement: IF '(' condition ')' LBRACE <A> instructions RBRACE ELSE LBRACE <B> instructions RBRACE <C>
 
-if_statement: B instruction RBRACE{
-    sprintf(sauvindex,"%d",qc);
-	maj_quad(quadindex2,1,sauvindex);
+if_statement: B instruction RBRACE {
+    sprintf(sauvindex, "%d", qc);
+    maj_quad(quadindex2, 1, sauvindex);
 }
 
 B: A instruction RBRACE ELSE LBRACE {
-    quadindex2=qc;
-	quadruplet("BR","","","");
-	sprintf(sauvindex,"%d",qc);
-	maj_quad(quadindex1,1,sauvindex);
+    quadindex2 = qc;
+    quadruplet("BR", "", "", "");
+    sprintf(sauvindex, "%d", qc);
+    maj_quad(quadindex1, 1, sauvindex);
 }
 
 A: IF '(' condition ')' LBRACE {
     strcpy(tmp, Depiler());
-    ajout_quad_affect_val("tmp_cond",tmp);
-	quadindex1=qc;
-	quadruplet(quad1 ,"","","tmp_cond");
+    ajout_quad_affect_val("tmp_cond", tmp);
+    quadindex1 = qc;
+    quadruplet(quad1, "", "", "tmp_cond");
 }
 
-condition: 
-    expression EQUAL expression 
-            {  int res;
-            strcpy(quad1,"BNE");
-            printf("*********ICI exp = exp **********\n");
-                op2 = malloc(50); 
-                op1 = malloc(50); 
-                strcpy(op2, Depiler());
-                strcpy(op1, Depiler());
-            if(!is_int_or_float(op1)){
-                float ope1 = atof(op1); 
-                float  ope2 = atof(op2); 
-                int res = (ope1 == ope2);
-                }
-            else{
-                int ope1 = atoi(op1); // convertir en int 
-                int ope2 = atoi(op2); 
-                int res = (ope1 == ope2);
-                }
-            sprintf(tmp, "%d",res);
-            Empiler(tmp);
-            free(op2); free(op1);
-            }
-    |expression NOT_EQUAL expression {  
-            int res;
-            strcpy(quad1,"BE");
-            printf("*********ICI exp != exp **********\n");
-                op2 = malloc(50); 
-                op1 = malloc(50); 
-                strcpy(op2, Depiler());
-                strcpy(op1, Depiler());
-            if(!is_int_or_float(op1)){
-                float ope1 = atof(op1); 
-                float  ope2 = atof(op2); 
-                int res = (ope1 != ope2);
-                }
-            else{
-                int ope1 = atoi(op1); // convertir en int 
-                int ope2 = atoi(op2); 
-                int res = (ope1 != ope2);
-                }
-            sprintf(tmp, "%d",res);
-            Empiler(tmp);
-            free(op2); free(op1);
-            }
-    |expression LESS expression {  
-            strcpy(quad1,"BGE");
-            printf("*********ICI exp < exp **********\n");
-                op2 = malloc(50); 
-                op1 = malloc(50); 
-                strcpy(op2, Depiler()); printf("op2 = %s\n",op2); printf("op2 est toujours valide et vaut = %s\n",op2); 
-                strcpy(op1, Depiler());
-            if(!is_int_or_float(op1)){
-                float ope1 = atof(op1); 
-                float  ope2 = atof(op2); 
-                int res = (ope1 < ope2);
-                sprintf(tmp, "%d",res);
-                }
-            else{// convertir en int
-                int ope1 = atoi(op1);  printf("ope1 = %d\n",ope1);
-                int ope2 = atoi(op2);  printf("ope2 = %d\n",ope2);
-                int res = (ope1 < ope2); printf("res = %d\n",res);
-                sprintf(tmp, "%d",res);
-                }
-            //quadruplet(quad1,"<tmp_cond>",op1,op2);
-            Empiler(tmp); Afficher_pile();
-            free(op2); free(op1);
-            }
-    |expression LESS_EQUAL expression {  
-            int res;
-            strcpy(quad1,"BG");
-            printf("*********ICI exp <= exp **********\n");
-                op2 = malloc(50); 
-                op1 = malloc(50);  
-                strcpy(op2, Depiler()); 
-                strcpy(op1, Depiler());
-            if(!is_int_or_float(op1)){
-                float ope1 = atof(op1); 
-                float  ope2 = atof(op2); 
-                int res = (ope1 <= ope2);
-                }
-            else{
-                int ope1 = atoi(op1); // convertir en int 
-                int ope2 = atoi(op2); 
-                int res = (ope1 <= ope2);
-                }
-            sprintf(tmp, "%d",res);
-            Empiler(tmp); Afficher_pile();
-            free(op2); free(op1);
-            }
-    |expression GREATER expression {  
-            int res;
-            strcpy(quad1,"BLE");
-            printf("*********ICI exp > exp **********\n");
-                op2 = malloc(50); 
-                op1 = malloc(50); 
-                strcpy(op2, Depiler());
-                strcpy(op1, Depiler());
-            if(!is_int_or_float(op1)){
-                float ope1 = atof(op1); 
-                float  ope2 = atof(op2); 
-                int res = (ope1 > ope2);
-                }
-            else{
-                int ope1 = atoi(op1); // convertir en int 
-                int ope2 = atoi(op2); 
-                int res = (ope1 > ope2);
-                }
-            sprintf(tmp, "%d",res);
-            Empiler(tmp);
-            free(op2); free(op1);
-            }
-    |expression GREATER_EQUAL expression {  
-            int res;
-            strcpy(quad1,"BL");
-            printf("*********ICI exp >= exp **********\n");
-                op2 = malloc(50); 
-                op1 = malloc(50); 
-                strcpy(op2, Depiler());
-                strcpy(op1, Depiler());
-            if(!is_int_or_float(op1)){
-                float ope1 = atof(op1); 
-                float  ope2 = atof(op2); 
-                int res = (ope1 >= ope2);
-                }
-            else{
-                int ope1 = atoi(op1); // convertir en int 
-                int ope2 = atoi(op2); 
-                int res = (ope1 >= ope2);
-                }
-            sprintf(tmp, "%d",res);
-            Empiler(tmp);
-            free(op2); free(op1);
-            }
-    | condition AND condition 
-    { 
-       
+condition:
+    expression comparison_operator expression {
+        strcpy(op2, Depiler());
+        strcpy(op1, Depiler());
+
+        if (!is_int_or_float(op1)) {
+            float val1 = atof(op1);
+            float val2 = atof(op2);
+            sprintf(tmp, "%d", evaluate_float_condition(val1, val2, comparison_type));
+        } else {
+            int val1 = atoi(op1);
+            int val2 = atoi(op2);
+            sprintf(tmp, "%d", evaluate_int_condition(val1, val2, comparison_type));
+        }
+
+        Empiler(tmp);
+        free(op1);
+        free(op2);
     }
-    | condition OR condition 
-    { 
-       
-    }
-    | NOT condition
+| condition AND condition {
+    char *res2 = Depiler();  // Get result of the second condition
+    char *res1 = Depiler();  // Get result of the first condition
+    int val1 = atoi(res1);   // Convert to integer
+    int val2 = atoi(res2);   // Convert to integer
+
+    int and_result = (val1 && val2);  // Logical AND
+    sprintf(tmp, "%d", and_result);  // Convert result to string
+    Empiler(tmp);                    // Push back onto the stack
+
+    free(res1);
+    free(res2);
+}
+| condition OR condition {
+    char *res2 = Depiler();  // Get result of the second condition
+    char *res1 = Depiler();  // Get result of the first condition
+    int val1 = atoi(res1);   // Convert to integer
+    int val2 = atoi(res2);   // Convert to integer
+
+    int or_result = (val1 || val2);  // Logical OR
+    sprintf(tmp, "%d", or_result);  // Convert result to string
+    Empiler(tmp);                   // Push back onto the stack
+
+    free(res1);
+    free(res2);
+}
+| NOT condition {
+    char *res = Depiler();   // Get result of the condition
+    int val = atoi(res);     // Convert to integer
+
+    int not_result = !val;   // Logical NOT
+    sprintf(tmp, "%d", not_result); // Convert result to string
+    Empiler(tmp);                     // Push back onto the stack
+
+    free(res);
+}
+
+
+comparison_operator:
+
+   EQUAL { comparison_type = "==" ; strcpy(quad1, "BNE"); }
+| NOT_EQUAL { comparison_type = "!="; strcpy(quad1, "BE"); }
+| LESS { comparison_type = "<"; strcpy(quad1, "BGE"); }
+| LESS_EQUAL { comparison_type = "<="; strcpy(quad1, "BG"); }
+| GREATER { comparison_type = ">"; strcpy(quad1, "BLE"); }
+| GREATER_EQUAL { comparison_type = ">="; strcpy(quad1, "BL"); };
+
+
+for_loop:  FOR '(' IDENTIFIER '=' expression ':' expression ':' expression ')' LBRACE instruction RBRACE 
     {
+        // Initialization
+        char *initVar = $3;  // Loop variable
+        char *startValue = Depiler(); // Starting value from expression 1
+        quadruplet("=", startValue, "-", initVar); // Generate quadruplet for initialization
 
+        // Condition check
+        int loopStart = qc; // Save the current quadruplet index for the start of the loop
+        char *endValue = Depiler(); // Ending value from expression 2
+        char temp1[10]; // Temporary variable for condition result
+        sprintf(temp1, "T%d", newTemp());
+        quadruplet("<=", initVar, endValue, temp1); // Temporary for condition
+        int conditionQuad = qc - 1; // Remember this quadruplet for backpatching
+
+        // Jump to loop exit
+        quadruplet("IF_FALSE", temp1, "-", "_"); // Placeholder for jump out of loop
+        int jumpExit = qc - 1;
+
+        // Loop body
+        //$12;  Execute instructions inside the loop
+
+        // Increment
+        char *stepValue = Depiler(); // Step value from expression 3
+        char temp2[10]; // Temporary variable for increment
+        sprintf(temp2, "T%d", newTemp());
+        quadruplet("+", initVar, stepValue, temp2); // Increment operation
+        quadruplet("=", temp2, "-", initVar); // Assign incremented value back to loop variable
+
+        // Jump back to loop start
+        quadruplet("GOTO", ToSTR(loopStart), "-", "-");
+
+        // Backpatch the jump exit location
+        maj_quad(jumpExit, 3, ToSTR(qc)); // Update the exit jump to the current quadruplet index
     }
-    ;
-
-
-
-
-for_loop:
-    FOR '(' IDENTIFIER '=' expression ':' expression ':' expression ')' LBRACE instructions RBRACE
-{
-    /*  exemple:for (i = 0; i <= 10; i++) {
-    printf("%d\n", i);
-}*/
-
-    // Initialisation
-    char *initVar = $3;  // Variable de boucle
-    char *startValue = Depiler(); // Valeur de départ de l'expression 1
-    quadruplet("=", startValue, "-", initVar); // Générer un quadruplet pour l'initialisation      (=, 0, -, i)
-
-
-    // Condition de la boucle
-    int loopStart = qc; // Sauvegarder l'index actuel du quadruplet pour le début de la boucle
-    char *endValue = Depiler(); // récupère la valeur de fin 10 à partir de l'évaluation de l'expression2 (i <= 10).
-    char temp1[10]; // Variable temporaire pour le résultat de la condition
-    sprintf(temp1, "T%d", newTemp());
-    quadruplet("<=", initVar, endValue, temp1); // Comparaison de la condition  (<=, i, 10, T1)  // T1 est une variable temporaire pour stocker le résultat de la comparaison
-
-    int conditionQuad = qc - 1; // Souvenez-vous de ce quadruplet qui vérifie la condition de la boucle. pour la mise à jour du saut conditionnel
-
-
-
-                                       // Saut à la sortie de la boucle si la condition est fausse
-    quadruplet("IF_FALSE", temp1, "-", "_"); // Placeholder pour le saut de sortie de boucle
-    int jumpExit = qc - 1; // Sauvegarder l'emplacement pour le saut de sortie
-
-    // Exécution du corps de la boucle
-    eval_instructions($12); // Exécuter les instructions à l'intérieur de la boucle
-
-    // Incrémentation de la variable de boucle
-    char *stepValue = Depiler(); // Valeur du pas d'incrément de l'expression 3
-    char temp2[10]; // Variable temporaire pour l'incrément
-    sprintf(temp2, "T%d", newTemp());
-    quadruplet("+", initVar, stepValue, temp2); // Incrémentation de la variable de boucle (+, i, 1, T2) ---> T2 est une variable temporaire pour stocker la valeur de l'incrément
-
-    quadruplet("=", temp2, "-", initVar); // Affectation de la nouvelle valeur à la variable de boucle  (=, T2, -, i)
-
-
-    // Retour au début de la boucle
-    quadruplet("GOTO", ToSTR(loopStart), "-", "-");
-
-    // Mise à jour du saut de sortie de la boucle (si la condition était fausse)
-    maj_quad(jumpExit, 3, ToSTR(qc)); // Mise à jour de la sortie pour sauter si la condition est fausse
-}
-
+;
 
 write_inst:
     WRITE '(' write_args ')' ';'
